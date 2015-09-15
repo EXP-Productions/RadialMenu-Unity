@@ -32,8 +32,8 @@ using System.Collections.Generic;
 ///  - Fires event with index of selected element
 ///  
 /// TODO:
-///  - Position aware menu. When close to edge of screen, change range of angles so all options fit in screen space
 ///  - Clean up messy code
+///  - Take pictures instead of strings
 ///  - Comment code
 /// </summary>
 /// 
@@ -71,7 +71,8 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
     string[] m_ButtonsNames;
 
     // Size in pixels of buttons
-    public float m_ButtonSize = 60;
+    public float m_ButtonSizeMain = 60;
+    public float m_ButtonSizeChild = 60;
 
     // Radius in pixels that the buttons will move out too
     public float m_Radius = 100;   
@@ -104,6 +105,13 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
     public class SelectionEvent : UnityEvent<int> { }
     public SelectionEvent OnSelected;
 
+    public Color m_HighlightCol;
+    public Color m_BaseCol;
+
+    public Color m_TextColBase;
+    public Color m_TextColHighlight;
+
+
 	void Start () 
     {
         MainButton = GetComponent<Button>();
@@ -124,21 +132,64 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
             m_Buttons.Add(CreateNewButton());
         }
 
+        SetButtonSize(m_ButtonSizeMain, m_ButtonSizeChild);
 
-        string[] testMenu = new string[] { "0", "1", "2", "3", "4", "5" };
-        GenerateMenu("Fire particles", testMenu);
+
+        string[] testMenu = new string[] { "Sin",
+		"Cos",
+		"Tan",
+		"Sqrt",
+		"Sqr",
+		"SawUp",
+		"SawDown",
+		"Square" };
+
+        GenerateMenu("WAVE", testMenu);
 	}
 
     void Update()
     {
-      
+        AdjustAngleBasedOnScreenPos();
+
+        if (Input.GetMouseButtonDown(1))
+            SetPosition(Input.mousePosition);
+
+        // Update selection colours
+       
+        for (int i = 0; i < m_Buttons.Count; i++)
+        {
+            if (!m_Buttons[i].gameObject.activeSelf)
+                continue;
+
+            if( !m_OptionSelected )
+            {
+                m_Buttons[i].image.color = Color.Lerp(m_Buttons[i].image.color, m_BaseCol, Time.deltaTime * m_Smoothing);
+                m_Buttons[i].GetComponentInChildren<Text>().color = m_TextColBase;
+            }
+            else if( i != m_SelectedIndex )
+            {
+                m_Buttons[i].image.color = Color.Lerp(m_Buttons[i].image.color, m_BaseCol, Time.deltaTime * m_Smoothing);
+                m_Buttons[i].GetComponentInChildren<Text>().color = m_TextColBase;
+            }
+            else
+            {              
+                m_Buttons[m_SelectedIndex].image.color = Color.Lerp(m_Buttons[m_SelectedIndex].image.color, m_HighlightCol, Time.deltaTime * m_Smoothing);
+                m_Buttons[i].GetComponentInChildren<Text>().color = m_TextColHighlight;
+            }
+        }
+
+        if (m_State == State.Activating || m_State == State.Active)
+        {
+            if (m_OptionSelected) MainButton.image.color = Color.Lerp(MainButton.image.color, m_HighlightCol, Time.deltaTime * m_Smoothing);
+        }
+        else MainButton.image.color = Color.Lerp(MainButton.image.color, m_BaseCol, Time.deltaTime * m_Smoothing);
 
         if( m_State == State.Activating )
         {
             m_RadLayout.UpdateFDistance(Mathf.Lerp(m_RadLayout.fDistance, m_TargetRadius, Time.deltaTime * m_Smoothing));
 
              float norm = m_RadLayout.fDistance / m_Radius;
-             SetButtonFade( norm * norm );
+             SetButtonFade( Mathf.Pow( norm, 5) );
 
              if (Mathf.Abs(m_RadLayout.fDistance - m_TargetRadius) < 2)
              {
@@ -171,7 +222,7 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
         {
             float norm = ( m_Radius - m_RadLayout.fDistance ) / m_Radius;
             norm = 1 - norm;
-            SetButtonFade(norm * norm);
+            SetButtonFade(Mathf.Pow(norm, 5));
 
             m_RadLayout.UpdateFDistance(Mathf.Lerp(m_RadLayout.fDistance, m_TargetRadius, Time.deltaTime * m_Smoothing));
 
@@ -183,6 +234,85 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
                     m_Buttons[i].gameObject.SetActive(false);
                 }
             }
+        }
+    }
+
+    void SetPosition( Vector3 pos )
+    {
+      //  MainButton.siz
+        pos.x = Mathf.Clamp(pos.x, m_ButtonSizeMain / 2, Screen.width - m_ButtonSizeMain / 2 );
+        pos.y = Mathf.Clamp(pos.y, m_ButtonSizeMain / 2, Screen.height - m_ButtonSizeMain / 2);
+
+        transform.position = pos;
+    }
+
+    void AdjustAngleBasedOnScreenPos()
+    {
+        // Check if radius is outside of screen
+        bool leftClip = false;
+        bool rightClip = false;
+        bool topClip = false;
+        bool bottomClip = false;
+
+        if ((transform.position - (Vector3.right * m_Radius)).x - (m_ButtonSizeChild/2f) < 0 ) leftClip = true;
+        if ((transform.position + (Vector3.right * m_Radius)).x + (m_ButtonSizeChild / 2f) > Screen.width) rightClip = true;
+        if ((transform.position + (Vector3.up * m_Radius)).y + (m_ButtonSizeChild / 2f) > Screen.height) topClip = true;
+        if ((transform.position - (Vector3.up * m_Radius)).y - (m_ButtonSizeChild / 2f) < 0) bottomClip = true;
+
+
+        if (leftClip && !topClip && !bottomClip )
+        {
+            m_RadLayout.StartAngle = 90;
+            m_RadLayout.MaxAngle = 180;
+            SetButtonSize(m_ButtonSizeMain, m_ButtonSizeChild);
+        }
+        else if (rightClip && !topClip && !bottomClip)
+        {
+            m_RadLayout.StartAngle = 270;
+            m_RadLayout.MaxAngle = 180;
+            SetButtonSize(m_ButtonSizeMain, m_ButtonSizeChild);
+        }
+        else if (topClip && !rightClip && !leftClip)
+        {
+            m_RadLayout.StartAngle = 0;
+            m_RadLayout.MaxAngle = 180;
+            SetButtonSize(m_ButtonSizeMain, m_ButtonSizeChild);
+        }
+        else if (bottomClip && !rightClip && !leftClip)
+        {
+            m_RadLayout.StartAngle = 180;
+            m_RadLayout.MaxAngle = 180;
+            SetButtonSize(m_ButtonSizeMain, m_ButtonSizeChild);
+        }
+        else if ( bottomClip && rightClip )
+        {
+            m_RadLayout.StartAngle = 180;
+            m_RadLayout.MaxAngle = 90;
+            SetButtonSize(m_ButtonSizeMain, m_ButtonSizeChild / 2);
+        }
+        else if (bottomClip && leftClip)
+        {
+            m_RadLayout.StartAngle = 90;
+            m_RadLayout.MaxAngle = 90;
+            SetButtonSize(m_ButtonSizeMain, m_ButtonSizeChild / 2);
+        }
+        else if (topClip && rightClip)
+        {
+            m_RadLayout.StartAngle = 270;
+            m_RadLayout.MaxAngle = 90;
+            SetButtonSize(m_ButtonSizeMain, m_ButtonSizeChild / 2);
+        }
+        else if (topClip && leftClip)
+        {
+            m_RadLayout.StartAngle = 0;
+            m_RadLayout.MaxAngle = 90;
+            SetButtonSize(m_ButtonSizeMain, m_ButtonSizeChild / 2);
+        }
+        else
+        {
+            m_RadLayout.StartAngle = 90;
+            m_RadLayout.MaxAngle = 360;
+            SetButtonSize(m_ButtonSizeMain, m_ButtonSizeChild);
         }
     }
 
@@ -201,6 +331,18 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
         }
 
         return closestButtonIndex;
+    }
+
+    void SetButtonSize( float mainSize, float childSize )
+    {
+        MainButton.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,   mainSize);
+        MainButton.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,     mainSize);
+
+        for (int i = 0; i < m_Buttons.Count; i++)
+        {
+            m_Buttons[i].GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, childSize);
+            m_Buttons[i].GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, childSize);
+        }
     }
 
     void SetButtonFade( float fade )
@@ -228,7 +370,7 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
         m_MenuText.text = menuName;
         m_ButtonsNames = buttonsNames;
 
-        if( m_ButtonsNames.Length < m_Buttons.Count )
+        if( m_ButtonsNames.Length > m_Buttons.Count )
         {
             int newBtnCount = m_ButtonsNames.Length - m_Buttons.Count;
             for (int i = 0; i < newBtnCount; i++)
@@ -263,8 +405,8 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
         }
 
         m_State = State.Activating;
-        
-        m_TargetRadius = 100;
+
+        m_TargetRadius = m_Radius;
     }
 
     void DeactivateMenu()
@@ -288,11 +430,16 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
         newBtn.transform.SetParent(m_RadLayout.transform);
         newBtn.gameObject.SetActive(false);
 
-        newBtn.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, m_ButtonSize);
-        newBtn.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, m_ButtonSize);
+        newBtn.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, m_ButtonSizeChild);
+        newBtn.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, m_ButtonSizeChild);
 
         newBtn.name = "Rad Btn " + m_Buttons.Count;
 
         return newBtn;
+    }
+
+    void OnDrawGizmos()
+    {
+        Gizmos.DrawWireSphere(transform.position, m_Radius);
     }
 }
