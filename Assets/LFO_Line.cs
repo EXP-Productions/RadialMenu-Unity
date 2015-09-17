@@ -4,7 +4,7 @@ using System.Collections;
 public class LFO_Line : MonoBehaviour
 {
     LineRenderer m_Line;
-    int m_NumberOfPoints = 300;
+    int m_NumberOfPoints = 50;
 
     public ParticleSystem m_PSys;
 
@@ -13,6 +13,8 @@ public class LFO_Line : MonoBehaviour
     public float m_DisplayFreq = 1;
 
     public float m_DisplayAmp = 1;
+
+    public RadialMenu1 m_RadialMenu;
 
 	// Use this for initialization
 	void Start () 
@@ -57,4 +59,36 @@ public class LFO_Line : MonoBehaviour
             m_Line.SetPosition(i, pos);
         }
 	}
+
+    void SetWaveform(int index)
+    {
+        m_LFO.SetWaveform(index);
+    }
+
+    void OnMouseOver()
+    {
+        if (Input.GetMouseButtonDown(1))
+        {
+            string[] testMenu = new string[] 
+            { 
+                "Sin",
+		        "Cos",
+		        "Tan",
+		        "Sqrt",
+		        "Sqr",
+		        "SawUp",
+		        "SawDown",
+		        "Square" 
+            };
+
+            m_RadialMenu.Reset();
+            m_RadialMenu.m_MenuName = "LFO";
+            m_RadialMenu.AddList("Waves", gameObject, "SetWaveform", testMenu);
+            m_RadialMenu.AddSlider("Freq", m_LFO.gameObject, "SetFrequency", -2f, 2, m_LFO.m_Frequency );
+
+            m_RadialMenu.SetPosition(Input.mousePosition);
+           // m_RadialMenu.GenerateMenu( m_LFO.m_Waveform.ToString(), Wave.m_WaveNames, gameObject, "SetWaveform" );
+            m_RadialMenu.ActivateMenu();
+        }
+    }
 }

@@ -23,7 +23,11 @@ public class LFO : MonoBehaviour
 		
 	// Speed controls
 	public bool 	m_DrawFrequencySlider = false;
-	public bool 	m_Paused = false;	
+	public bool 	m_Paused = false;
+
+  
+
+   
 	
 	void Start()
 	{
@@ -119,6 +123,13 @@ public class LFO : MonoBehaviour
 	{
 		
 	}
+
+    public void SetFrequency( float freq )
+    {
+        m_Frequency = freq;
+
+        print("Freq set ");
+    }
 	
 	public void SetWaveform( int wavefromIndex )
 	{
@@ -130,6 +141,8 @@ public class LFO : MonoBehaviour
 	{
 		m_Waveform = waveform;
 	}
+
+   
 	
 	void OnDrawGizmos()
 	{
@@ -153,6 +166,18 @@ public class Wave
 		Square,
 		None,
 	}
+
+    public static string[] m_WaveNames = new string[] 
+        { 
+            "Sin",
+		    "Cos",
+		    "Tan",
+		    "Sqrt",
+		    "Sqr",
+		    "Saw Up",
+		    "Saw Down",
+		    "Square" 
+        };
 
 	public static float Evaluate( Waveform wave, float normalizedInput )
 	{

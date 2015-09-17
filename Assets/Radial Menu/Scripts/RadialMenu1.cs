@@ -35,10 +35,20 @@ using System.Collections.Generic;
 ///  - Clean up messy code
 ///  - Take pictures instead of strings
 ///  - Comment code
+///  - Make so you can populate in editor with buttons that can have individual events
+///  
+///  RadialMenuObjects 
+///      
+/// 
+/// CreateMenu ( 
+/// sliderX( objectToCall, funtionsToCall, min, max, startval ),
+/// toggle( objectToCall, funtionsToCall, initialBool ),
+/// button( objectToCall, funtionsToCall )
+/// }
 /// </summary>
 /// 
 [RequireComponent(typeof(Button))]
-public class RadialMenu : MonoBehaviour, IPointerDownHandler
+public class RadialMenu1 : MonoBehaviour, IPointerDownHandler
 {
     enum State
     {
@@ -55,7 +65,13 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
     RadialLayout m_RadLayout;
 
     // Prefab buttons that will populate the menu
-    public Button m_ButtonPrefab;
+    public RectTransform m_DefaultMenuObject;
+
+    public RadialSlider1    m_SliderPrefab;
+    public RadialMenuObject m_ButtonPrefab;
+    public RadialMenuObject m_TogglePrefab;
+    public RadialList       m_ListPrefab;
+
 
     // Name displayed on the menu
     public string m_MenuName = "Menu";
@@ -65,10 +81,8 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
     Button MainButton;
 
     // List of buttons
-    public List<Button> m_Buttons = new List<Button>();
+    public List<RadialMenuObject> m_MenuObjects = new List<RadialMenuObject>();
 
-    // Names of active buttons
-    string[] m_ButtonsNames;
 
     // Size in pixels of buttons
     public float m_ButtonSizeMain = 60;
@@ -105,12 +119,20 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
     public class SelectionEvent : UnityEvent<int> { }
     public SelectionEvent OnSelected;
 
+    // Test array of events
+    public SelectionEvent[] OnSelectedEvents;
+
     public Color m_HighlightCol;
     public Color m_BaseCol;
 
     public Color m_TextColBase;
     public Color m_TextColHighlight;
 
+    GameObject m_ObjectToMessage;
+    string m_FunctionCall;
+
+
+    public bool m_HideInactive = false;
 
 	void Start () 
     {
@@ -127,54 +149,44 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
         int index = m_RadLayout.transform.GetSiblingIndex();
         m_RadLayout.transform.SetSiblingIndex(index - 1);
 
-        for (int i = 0; i < 6; i++)
-        {
-            m_Buttons.Add(CreateNewButton());
-        }
-
         SetButtonSize(m_ButtonSizeMain, m_ButtonSizeChild);
-
-
-        string[] testMenu = new string[] { "Sin",
-		"Cos",
-		"Tan",
-		"Sqrt",
-		"Sqr",
-		"SawUp",
-		"SawDown",
-		"Square" };
-
-        GenerateMenu("WAVE", testMenu);
 	}
+
+
+    // Transition to pooling later
+    public void Reset()
+    {
+        foreach (RadialMenuObject obj in m_MenuObjects)
+            Destroy(obj.gameObject);
+
+        m_MenuObjects.Clear();
+    }
 
     void Update()
     {
         AdjustAngleBasedOnScreenPos();
 
-        if (Input.GetMouseButtonDown(1))
-            SetPosition(Input.mousePosition);
-
         // Update selection colours
        
-        for (int i = 0; i < m_Buttons.Count; i++)
+        for (int i = 0; i < m_MenuObjects.Count; i++)
         {
-            if (!m_Buttons[i].gameObject.activeSelf)
+            if (!m_MenuObjects[i].gameObject.activeSelf)
                 continue;
 
             if( !m_OptionSelected )
             {
-                m_Buttons[i].image.color = Color.Lerp(m_Buttons[i].image.color, m_BaseCol, Time.deltaTime * m_Smoothing);
-                m_Buttons[i].GetComponentInChildren<Text>().color = m_TextColBase;
+               // m_MenuObjects[i].image.color = Color.Lerp(m_MenuObjects[i].image.color, m_BaseCol, Time.deltaTime * m_Smoothing);
+                m_MenuObjects[i].GetComponentInChildren<Text>().color = m_TextColBase;
             }
             else if( i != m_SelectedIndex )
             {
-                m_Buttons[i].image.color = Color.Lerp(m_Buttons[i].image.color, m_BaseCol, Time.deltaTime * m_Smoothing);
-                m_Buttons[i].GetComponentInChildren<Text>().color = m_TextColBase;
+               // m_MenuObjects[i].image.color = Color.Lerp(m_MenuObjects[i].image.color, m_BaseCol, Time.deltaTime * m_Smoothing);
+                m_MenuObjects[i].GetComponentInChildren<Text>().color = m_TextColBase;
             }
             else
             {              
-                m_Buttons[m_SelectedIndex].image.color = Color.Lerp(m_Buttons[m_SelectedIndex].image.color, m_HighlightCol, Time.deltaTime * m_Smoothing);
-                m_Buttons[i].GetComponentInChildren<Text>().color = m_TextColHighlight;
+              //  m_MenuObjects[m_SelectedIndex].image.color = Color.Lerp(m_MenuObjects[m_SelectedIndex].image.color, m_HighlightCol, Time.deltaTime * m_Smoothing);
+                m_MenuObjects[i].GetComponentInChildren<Text>().color = m_TextColHighlight;
             }
         }
 
@@ -195,9 +207,6 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
              {
                  m_State = State.Active;
              }
-
-             if (Input.GetMouseButtonUp(0))
-                 DeactivateMenu();
         }
         else if (m_State == State.Active )
         {
@@ -209,13 +218,11 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
             else
             {
                 m_SelectedIndex = FindClosestButtonIndex();
-                m_MenuText.text = m_ButtonsNames[m_SelectedIndex];
                 m_OptionSelected = true;
             }
 
-            if (Input.GetMouseButtonUp(0))
-                DeactivateMenu();
-
+           // if (Input.GetMouseButtonUp(1))
+           //     DeactivateMenu();
            
         }
         else if (m_State == State.Deactivating )
@@ -227,17 +234,43 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
             m_RadLayout.UpdateFDistance(Mathf.Lerp(m_RadLayout.fDistance, m_TargetRadius, Time.deltaTime * m_Smoothing));
 
             if (Mathf.Abs(m_RadLayout.fDistance - m_TargetRadius) < 2)
-            {
+            {                
                 m_State = State.Deactivated;
-                for (int i = 0; i < m_ButtonsNames.Length; i++)
+                for (int i = 0; i < m_MenuObjects.Count; i++)
                 {
-                    m_Buttons[i].gameObject.SetActive(false);
+                    m_MenuObjects[i].gameObject.SetActive(false);
                 }
+
+                if (m_HideInactive)
+                    transform.position = Vector3.right * float.MaxValue;
             }
         }
     }
 
-    void SetPosition( Vector3 pos )
+    public void AddSlider( string name, GameObject objectToCall, string functionToCall, float rangeMin, float rangeMax, float initialValue )
+    {
+        RadialSlider1 slider = Instantiate( m_SliderPrefab );
+        slider.Init(name, objectToCall, functionToCall);
+        slider.m_Range = new Vector2(rangeMin, rangeMax);
+        slider.ScaledVal = initialValue;
+        slider.m_Text.text = name;
+
+        slider.transform.SetParent(m_RadLayout.transform);
+
+        m_MenuObjects.Add(slider);
+    }
+
+    public void AddList(string name, GameObject objectToCall, string functionToCall, string[] names )
+    {
+        RadialList list = Instantiate(m_ListPrefab);
+        list.Init(name, objectToCall, functionToCall);
+        list.GenerateMenu(name, names);
+        list.transform.SetParent(m_RadLayout.transform);
+
+        m_MenuObjects.Add(list);
+    }
+
+    public void SetPosition( Vector3 pos )
     {
       //  MainButton.siz
         pos.x = Mathf.Clamp(pos.x, m_ButtonSizeMain / 2, Screen.width - m_ButtonSizeMain / 2 );
@@ -310,7 +343,7 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
         }
         else
         {
-            m_RadLayout.StartAngle = 90;
+            m_RadLayout.StartAngle = 0;
             m_RadLayout.MaxAngle = 360;
             SetButtonSize(m_ButtonSizeMain, m_ButtonSizeChild);
         }
@@ -320,9 +353,9 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
     {
         int closestButtonIndex = 0;
         float closestDist = float.MaxValue;
-        for (int i = 0; i < m_ButtonsNames.Length; i++)
+        for (int i = 0; i < m_MenuObjects.Count; i++)
         {
-            float dist = Vector3.Distance(Input.mousePosition, m_Buttons[i].transform.position);
+            float dist = Vector3.Distance(Input.mousePosition, m_MenuObjects[i].transform.position);
             if( dist < closestDist )
             {
                 closestDist = dist;
@@ -338,70 +371,54 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
         MainButton.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,   mainSize);
         MainButton.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,     mainSize);
 
-        for (int i = 0; i < m_Buttons.Count; i++)
+        for (int i = 0; i < m_MenuObjects.Count; i++)
         {
-            m_Buttons[i].GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, childSize);
-            m_Buttons[i].GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, childSize);
+            m_MenuObjects[i].GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, childSize);
+            m_MenuObjects[i].GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, childSize);
         }
     }
 
     void SetButtonFade( float fade )
     {
+        /*
         for (int i = 0; i < m_ButtonsNames.Length; i++)
         {
-            ColorBlock colBlock = m_Buttons[i].colors;
+            ColorBlock colBlock = m_MenuObjects[i].colors;
 
             Color currentCol = colBlock.normalColor;
             currentCol.a = fade;
             colBlock.normalColor = currentCol;
 
-            m_Buttons[i].colors = colBlock;
+            m_MenuObjects[i].colors = colBlock;
 
-            Color textCol = m_Buttons[i].GetComponentInChildren<Text>().color;
+            Color textCol = m_MenuObjects[i].GetComponentInChildren<Text>().color;
             textCol.a = fade;
-            m_Buttons[i].GetComponentInChildren<Text>().color = textCol;
+            m_MenuObjects[i].GetComponentInChildren<Text>().color = textCol;
         }
+         * */
     }
 	
-	// Update is called once per frame
-	public void GenerateMenu ( string menuName, string[] buttonsNames ) 
-    {
-        m_MenuName = menuName;
-        m_MenuText.text = menuName;
-        m_ButtonsNames = buttonsNames;
-
-        if( m_ButtonsNames.Length > m_Buttons.Count )
-        {
-            int newBtnCount = m_ButtonsNames.Length - m_Buttons.Count;
-            for (int i = 0; i < newBtnCount; i++)
-            {
-                m_Buttons.Add(CreateNewButton());
-            }
-        }
-
-        // Set buttons names and set to active
-        for (int i = 0; i < m_ButtonsNames.Length; i++)
-        {
-            Button b = m_Buttons[i];
-            b.gameObject.SetActive(true);
-            m_Buttons[i].GetComponentInChildren<Text>().text = m_ButtonsNames[i];
-            b.gameObject.SetActive(false);
-        }
-	}
-
     public void OnPointerDown(PointerEventData eventData)
     {
-        ActivateMenu();
-        Debug.Log(this.gameObject.name + " Was Clicked.");
+        if (m_State == State.Deactivated )
+        {
+            ActivateMenu();
+            Debug.Log(this.gameObject.name + " Was Clicked.");
+        }
+        else if( m_State == State.Active )
+        {
+            DeactivateMenu();
+            print("here");
+        }
     }
     
-    void ActivateMenu()
+    public void ActivateMenu()
     {
         print("Menu activated");
 
-        for (int i = 0; i < m_ButtonsNames.Length; i++)
+        for (int i = 0; i < m_MenuObjects.Count; i++)
         {
-            m_Buttons[i].gameObject.SetActive(true);
+            m_MenuObjects[i].gameObject.SetActive(true);
         }
 
         m_State = State.Activating;
@@ -412,7 +429,11 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
     void DeactivateMenu()
     {
         if (m_OptionSelected)
+        {
             OnSelected.Invoke(m_SelectedIndex);
+            if( m_ObjectToMessage != null )
+                m_ObjectToMessage.SendMessage(m_FunctionCall, m_SelectedIndex);
+        }
 
         m_State = State.Deactivating;
 
@@ -424,16 +445,16 @@ public class RadialMenu : MonoBehaviour, IPointerDownHandler
         m_TargetRadius = 0;
     }
 
-    Button CreateNewButton()
+    RectTransform CreateNewButton()
     {
-        Button newBtn = Instantiate(m_ButtonPrefab) as Button;
+        RectTransform newBtn = Instantiate(m_DefaultMenuObject) as RectTransform;
         newBtn.transform.SetParent(m_RadLayout.transform);
         newBtn.gameObject.SetActive(false);
 
         newBtn.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, m_ButtonSizeChild);
         newBtn.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, m_ButtonSizeChild);
 
-        newBtn.name = "Rad Btn " + m_Buttons.Count;
+        newBtn.name = "Rad Btn " + m_MenuObjects.Count;
 
         return newBtn;
     }
