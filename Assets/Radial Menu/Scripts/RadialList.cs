@@ -117,6 +117,8 @@ public class RadialList : RadialMenuObject, IPointerDownHandler
     public Color m_TextColHighlight;
 
 
+
+
     public bool m_HideInactive = false;
 
 	void Awake () 
@@ -158,26 +160,27 @@ public class RadialList : RadialMenuObject, IPointerDownHandler
 
             if( !m_OptionSelected )
             {
-               // m_MenuObjects[i].image.color = Color.Lerp(m_MenuObjects[i].image.color, m_BaseCol, Time.deltaTime * m_Smoothing);
-                m_MenuObjects[i].GetComponentInChildren<Text>().color = m_TextColBase;
+                m_MenuObjects[i].GetComponent< Image >().color = m_BGCol;
+                m_MenuObjects[i].GetComponentInChildren<Text>().color = m_TextCol;
             }
             else if( i != m_SelectedIndex )
             {
-               // m_MenuObjects[i].image.color = Color.Lerp(m_MenuObjects[i].image.color, m_BaseCol, Time.deltaTime * m_Smoothing);
-                m_MenuObjects[i].GetComponentInChildren<Text>().color = m_TextColBase;
+                m_MenuObjects[i].GetComponent<Image>().color = m_BGCol;
+                m_MenuObjects[i].GetComponentInChildren<Text>().color = m_TextCol;
             }
             else
-            {              
-              //  m_MenuObjects[m_SelectedIndex].image.color = Color.Lerp(m_MenuObjects[m_SelectedIndex].image.color, m_HighlightCol, Time.deltaTime * m_Smoothing);
-                m_MenuObjects[i].GetComponentInChildren<Text>().color = m_TextColHighlight;
+            {
+                m_MenuObjects[i].GetComponent<Image>().color = m_FGCol;
+                m_MenuObjects[i].GetComponentInChildren<Text>().color = m_TextCol;
             }
         }
 
         if (m_State == State.Activating || m_State == State.Active)
         {
-            if (m_OptionSelected) MainButton.image.color = Color.Lerp(MainButton.image.color, m_HighlightCol, Time.deltaTime * m_Smoothing);
+            if (m_OptionSelected) MainButton.GetComponent< Image >().color = Color.Lerp(MainButton.image.color, m_BGCol, Time.deltaTime * m_Smoothing);
         }
-        else MainButton.image.color = Color.Lerp(MainButton.image.color, m_BaseCol, Time.deltaTime * m_Smoothing);
+
+        else MainButton.GetComponent< Image >().color = Color.Lerp(MainButton.image.color, m_FGCol, Time.deltaTime * m_Smoothing);
 
         if( m_State == State.Activating )
         {
@@ -345,22 +348,19 @@ public class RadialList : RadialMenuObject, IPointerDownHandler
 
     void SetButtonFade( float fade )
     {
-        /*
         for (int i = 0; i < m_ButtonsNames.Length; i++)
         {
-            ColorBlock colBlock = m_MenuObjects[i].colors;
-
-            Color currentCol = colBlock.normalColor;
+            Image image = m_MenuObjects[i].GetComponent<Image>();
+            Color currentCol = image.color;
             currentCol.a = fade;
-            colBlock.normalColor = currentCol;
+            image.color = currentCol;
 
-            m_MenuObjects[i].colors = colBlock;
-
+            Text text = m_MenuObjects[i].GetComponentInChildren<Text>();
             Color textCol = m_MenuObjects[i].GetComponentInChildren<Text>().color;
             textCol.a = fade;
             m_MenuObjects[i].GetComponentInChildren<Text>().color = textCol;
+                      
         }
-         * */
     }
 	
 	public void GenerateMenu ( string menuName, string[] buttonsNames ) 
@@ -388,8 +388,9 @@ public class RadialList : RadialMenuObject, IPointerDownHandler
         }
 	}
 
-    public void OnPointerDown(PointerEventData eventData)
+    public override void OnPointerDown(PointerEventData eventData)
     {
+        m_RadMenu.SetSelectedMenuObject(this);
         if (m_State == State.Deactivated || m_State == State.Deactivating)
         {
             ActivateMenu();
@@ -424,6 +425,8 @@ public class RadialList : RadialMenuObject, IPointerDownHandler
             m_MenuText.text = m_MenuName;
 
         print("Deactivating,    Name set to : " + m_MenuText.text);
+
+        Disengage();
 
         m_TargetRadius = 0;
     }

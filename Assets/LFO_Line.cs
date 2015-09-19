@@ -14,7 +14,7 @@ public class LFO_Line : MonoBehaviour
 
     public float m_DisplayAmp = 1;
 
-    public RadialMenu1 m_RadialMenu;
+    public RadialMenu m_RadialMenu;
 
 	// Use this for initialization
 	void Start () 
@@ -26,9 +26,6 @@ public class LFO_Line : MonoBehaviour
         {
             m_PSys.Emit(Vector3.zero, Vector3.zero, .1f, float.MaxValue, Color.white);
         }
-
-       
-       
 	}
 	
 	// Update is called once per frame
@@ -40,24 +37,16 @@ public class LFO_Line : MonoBehaviour
         for (int i = 0; i < m_NumberOfPoints; i++)
         {
             float norm = (float)i/(float)m_NumberOfPoints;
+
             Vector3 pos = transform.position;
             pos.x += -(m_Length / 2f) + (norm * m_Length);
-            pos.y += -(m_DisplayAmp / 2f) + (m_LFO.GetValueWithOffset(norm * m_DisplayFreq) * m_DisplayAmp);
+            pos.y += -(m_DisplayAmp / 2f) + (m_LFO.GetValueWithOffset( norm * m_DisplayFreq ) * m_DisplayAmp);
 
             particles[i].position = pos;
         }
         m_PSys.SetParticles(particles, m_NumberOfPoints);
 
         
-
-        for (int i = 0; i < m_NumberOfPoints; i++)
-        {
-            float norm = (float)i/(float)m_NumberOfPoints;
-            Vector3 pos = transform.position;
-            pos.x += -(m_Length / 2f) + (norm * m_Length);
-            pos.y += -(m_DisplayAmp / 2f) + (m_LFO.GetValueWithOffset(norm * m_DisplayFreq) * m_DisplayAmp);
-            m_Line.SetPosition(i, pos);
-        }
 	}
 
     void SetWaveform(int index)
@@ -85,9 +74,9 @@ public class LFO_Line : MonoBehaviour
             m_RadialMenu.m_MenuName = "LFO";
             m_RadialMenu.AddList("Waves", gameObject, "SetWaveform", testMenu);
             m_RadialMenu.AddSlider("Freq", m_LFO.gameObject, "SetFrequency", -2f, 2, m_LFO.m_Frequency );
+            m_RadialMenu.AddSlider("Phase", m_LFO.gameObject, "SetPhase", -1f, 1, m_LFO.m_Phase);
 
             m_RadialMenu.SetPosition(Input.mousePosition);
-           // m_RadialMenu.GenerateMenu( m_LFO.m_Waveform.ToString(), Wave.m_WaveNames, gameObject, "SetWaveform" );
             m_RadialMenu.ActivateMenu();
         }
     }

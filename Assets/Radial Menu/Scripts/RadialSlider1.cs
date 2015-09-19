@@ -13,7 +13,7 @@ public class RadialSlider1 : RadialMenuObject, IPointerDownHandler
     bool m_Pressed = false;
 
     public Image m_SliderImage;
-    public Text m_Text;
+    
 
     float m_PreNormVal;
     float m_NormalizedVal = 0;
@@ -25,7 +25,8 @@ public class RadialSlider1 : RadialMenuObject, IPointerDownHandler
         set
         {
             m_NormalizedVal = (value - m_Range.x) / (m_Range.y - m_Range.x); 
-            m_ScaledVal = value; 
+            m_ScaledVal = value;
+            m_SliderImage.fillAmount = m_NormalizedVal;
         }
     }
 
@@ -45,6 +46,7 @@ public class RadialSlider1 : RadialMenuObject, IPointerDownHandler
         if( m_Pressed && Input.GetMouseButtonUp( 0 ) )
         {
             Unclick();
+            Disengage();
             m_Text.text = m_ObjectName;
         }
         else if( m_Pressed )
@@ -78,8 +80,9 @@ public class RadialSlider1 : RadialMenuObject, IPointerDownHandler
             m_ObjectToCall.SendMessage( m_FunctionToCall, m_ScaledVal );
     }
 
-    public void OnPointerDown(PointerEventData eventData)
+    public override void OnPointerDown(PointerEventData eventData)
     {
+        m_RadMenu.SetSelectedMenuObject(this);
         Debug.Log(this.gameObject.name + " Was click drag started.");
         m_Pressed = true;
         m_PressDownPos = Input.mousePosition;

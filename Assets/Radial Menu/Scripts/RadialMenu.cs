@@ -47,8 +47,7 @@ using System.Collections.Generic;
 /// }
 /// </summary>
 /// 
-[RequireComponent(typeof(Button))]
-public class RadialMenu1 : MonoBehaviour, IPointerDownHandler
+public class RadialMenu : MonoBehaviour, IPointerDownHandler
 {
     enum State
     {
@@ -72,6 +71,12 @@ public class RadialMenu1 : MonoBehaviour, IPointerDownHandler
     public RadialMenuObject m_TogglePrefab;
     public RadialList       m_ListPrefab;
 
+    public Color m_FGCol;
+    public Color m_BGCol;
+    public Color m_HLCol;
+    public Color m_TextCol;
+
+    RadialMenuObject m_SelectedMenuObject;
 
     // Name displayed on the menu
     public string m_MenuName = "Menu";
@@ -79,6 +84,7 @@ public class RadialMenu1 : MonoBehaviour, IPointerDownHandler
 
     // Main menu button
     Button MainButton;
+
 
     // List of buttons
     public List<RadialMenuObject> m_MenuObjects = new List<RadialMenuObject>();
@@ -121,13 +127,7 @@ public class RadialMenu1 : MonoBehaviour, IPointerDownHandler
 
     // Test array of events
     public SelectionEvent[] OnSelectedEvents;
-
-    public Color m_HighlightCol;
-    public Color m_BaseCol;
-
-    public Color m_TextColBase;
-    public Color m_TextColHighlight;
-
+       
     GameObject m_ObjectToMessage;
     string m_FunctionCall;
 
@@ -173,35 +173,21 @@ public class RadialMenu1 : MonoBehaviour, IPointerDownHandler
             if (!m_MenuObjects[i].gameObject.activeSelf)
                 continue;
 
-            if( !m_OptionSelected )
-            {
-               // m_MenuObjects[i].image.color = Color.Lerp(m_MenuObjects[i].image.color, m_BaseCol, Time.deltaTime * m_Smoothing);
-                m_MenuObjects[i].GetComponentInChildren<Text>().color = m_TextColBase;
-            }
-            else if( i != m_SelectedIndex )
-            {
-               // m_MenuObjects[i].image.color = Color.Lerp(m_MenuObjects[i].image.color, m_BaseCol, Time.deltaTime * m_Smoothing);
-                m_MenuObjects[i].GetComponentInChildren<Text>().color = m_TextColBase;
-            }
-            else
-            {              
-              //  m_MenuObjects[m_SelectedIndex].image.color = Color.Lerp(m_MenuObjects[m_SelectedIndex].image.color, m_HighlightCol, Time.deltaTime * m_Smoothing);
-                m_MenuObjects[i].GetComponentInChildren<Text>().color = m_TextColHighlight;
-            }
+          
         }
 
         if (m_State == State.Activating || m_State == State.Active)
         {
-            if (m_OptionSelected) MainButton.image.color = Color.Lerp(MainButton.image.color, m_HighlightCol, Time.deltaTime * m_Smoothing);
+           
         }
-        else MainButton.image.color = Color.Lerp(MainButton.image.color, m_BaseCol, Time.deltaTime * m_Smoothing);
+       
 
         if( m_State == State.Activating )
         {
             m_RadLayout.UpdateFDistance(Mathf.Lerp(m_RadLayout.fDistance, m_TargetRadius, Time.deltaTime * m_Smoothing));
 
              float norm = m_RadLayout.fDistance / m_Radius;
-             SetButtonFade( Mathf.Pow( norm, 5) );
+             SetAllObjectFades( Mathf.Pow( norm, 5) );
 
              if (Mathf.Abs(m_RadLayout.fDistance - m_TargetRadius) < 2)
              {
@@ -229,7 +215,7 @@ public class RadialMenu1 : MonoBehaviour, IPointerDownHandler
         {
             float norm = ( m_Radius - m_RadLayout.fDistance ) / m_Radius;
             norm = 1 - norm;
-            SetButtonFade(Mathf.Pow(norm, 5));
+            SetAllObjectFades(Mathf.Pow(norm, 5));
 
             m_RadLayout.UpdateFDistance(Mathf.Lerp(m_RadLayout.fDistance, m_TargetRadius, Time.deltaTime * m_Smoothing));
 
@@ -242,15 +228,33 @@ public class RadialMenu1 : MonoBehaviour, IPointerDownHandler
                 }
 
                 if (m_HideInactive)
-                    transform.position = Vector3.right * float.MaxValue;
+                    transform.position = Vector3.right * Screen.width * 3;
             }
         }
+    }
+
+    public void SetSelectedMenuObject( RadialMenuObject obj)
+    {
+        m_SelectedMenuObject = obj;
+
+        m_SelectedMenuObject.Fade( 1 );
+
+        foreach( RadialMenuObject menuObj in m_MenuObjects )
+            if( menuObj != m_SelectedMenuObject ) menuObj.Fade( .1f );
+
+        Color col = m_FGCol;
+        col.a = .1f;
+        this.GetComponent<Image>().color = col;
+
+        Color fontCol = m_TextCol;
+        fontCol.a = .1f;
+        m_MenuText.color = fontCol;
     }
 
     public void AddSlider( string name, GameObject objectToCall, string functionToCall, float rangeMin, float rangeMax, float initialValue )
     {
         RadialSlider1 slider = Instantiate( m_SliderPrefab );
-        slider.Init(name, objectToCall, functionToCall);
+        slider.Init(this,name, objectToCall, functionToCall);
         slider.m_Range = new Vector2(rangeMin, rangeMax);
         slider.ScaledVal = initialValue;
         slider.m_Text.text = name;
@@ -258,12 +262,15 @@ public class RadialMenu1 : MonoBehaviour, IPointerDownHandler
         slider.transform.SetParent(m_RadLayout.transform);
 
         m_MenuObjects.Add(slider);
+
+        foreach (RadialMenuObject menuObj in m_MenuObjects)
+            menuObj.SetPallette(m_FGCol, m_BGCol, m_HLCol, m_TextCol);
     }
 
     public void AddList(string name, GameObject objectToCall, string functionToCall, string[] names )
     {
         RadialList list = Instantiate(m_ListPrefab);
-        list.Init(name, objectToCall, functionToCall);
+        list.Init(this,name, objectToCall, functionToCall);
         list.GenerateMenu(name, names);
         list.transform.SetParent(m_RadLayout.transform);
 
@@ -368,8 +375,8 @@ public class RadialMenu1 : MonoBehaviour, IPointerDownHandler
 
     void SetButtonSize( float mainSize, float childSize )
     {
-        MainButton.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,   mainSize);
-        MainButton.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,     mainSize);
+        this.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,   mainSize);
+        this.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,     mainSize);
 
         for (int i = 0; i < m_MenuObjects.Count; i++)
         {
@@ -378,24 +385,24 @@ public class RadialMenu1 : MonoBehaviour, IPointerDownHandler
         }
     }
 
-    void SetButtonFade( float fade )
+    void SetAllObjectFades( float fade )
     {
-        /*
-        for (int i = 0; i < m_ButtonsNames.Length; i++)
-        {
-            ColorBlock colBlock = m_MenuObjects[i].colors;
+        Color col = m_FGCol;
+        col.a = fade;
+        this.GetComponent<Image>().color = col;
 
-            Color currentCol = colBlock.normalColor;
-            currentCol.a = fade;
-            colBlock.normalColor = currentCol;
+        Color fontCol = m_TextCol;
+        fontCol.a = fade;
+        m_MenuText.color = fontCol;
+       
 
-            m_MenuObjects[i].colors = colBlock;
+        foreach (RadialMenuObject rO in m_MenuObjects)
+            rO.Fade(fade);
+    }
 
-            Color textCol = m_MenuObjects[i].GetComponentInChildren<Text>().color;
-            textCol.a = fade;
-            m_MenuObjects[i].GetComponentInChildren<Text>().color = textCol;
-        }
-         * */
+    public void DisengageSelection()
+    {
+        SetAllObjectFades(1);
     }
 	
     public void OnPointerDown(PointerEventData eventData)

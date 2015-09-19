@@ -9,13 +9,14 @@ public class LFO : MonoBehaviour
 	public Wave.Waveform m_Waveform = Wave.Waveform.Sin;
 		
 	public float 	m_ContinuousValue;
-	public float 	ContinuousValue{ get{ return m_ContinuousValue; } }	
-	
-	public float 	CurrentAngle { get{ return ( m_PositionInCycle * 360 ); } }	// Each cycle goes through 360 degrees
+	public float 	ContinuousValue{ get{ return m_ContinuousValue; } }
+
+    public float CurrentAngle { get { return ((m_PositionInCycle + m_Phase )* 360); } }	// Each cycle goes through 360 degrees
 	protected float m_PositionInCycle;		// Normalized position in cycle
 	protected float m_PrevPositionInCycle;	// Previous normalized position in cycle
 	public float 	m_Frequency = 1;		// Cycles per second
 	public float 	m_Amplitude = 1;		// Height of the peaks
+    public float    m_Phase = 0;
 	float 			m_FrequencyScaler = 1;	// For controlling the speed, reversing, fast forwarding and setting divisions of a master beat 16ths 8ths
 	public 	float	SpeedMultiplyer { get{ return m_FrequencyScaler; } }
 	public float 	m_CurrentNormaliedValue;
@@ -41,7 +42,7 @@ public class LFO : MonoBehaviour
 	
 	public float GetValueWithOffset( float offset )
 	{
-        return Mathf.Clamp01( Wave.Evaluate(m_Waveform, m_PositionInCycle + offset) );
+        return Mathf.Clamp01( Wave.Evaluate(m_Waveform, m_PositionInCycle + m_Phase + offset) );
 
         /*
 		float currentAmplitude = Mathf.Sin( (CurrentAngle * Mathf.Deg2Rad) + ((offset * 360 * Mathf.Deg2Rad ) * m_Frequency ) );			
@@ -127,8 +128,11 @@ public class LFO : MonoBehaviour
     public void SetFrequency( float freq )
     {
         m_Frequency = freq;
+    }
 
-        print("Freq set ");
+    public void SetPhase(float phase)
+    {
+        m_Phase = phase;
     }
 	
 	public void SetWaveform( int wavefromIndex )
@@ -181,7 +185,7 @@ public class Wave
 
 	public static float Evaluate( Waveform wave, float normalizedInput )
 	{
-        normalizedInput = normalizedInput % 1;
+        normalizedInput = WrapFloatToRange(normalizedInput, 0f, 1f);
 
 		if( wave == Wave.Waveform.Sin )
 		{	
@@ -224,4 +228,20 @@ public class Wave
 
 		return 0;
 	}
+
+    public static float WrapFloatToRange( float f, float min, float max)
+    {
+        float result = f;
+        float difference = max - min;
+
+        while (result < min || result > max)
+        {
+            if (result < min)
+                result += difference;
+            else if (result > max)
+                result -= difference;
+        }
+
+        return result;
+    }
 }
