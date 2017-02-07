@@ -40,17 +40,14 @@ public class LFO : MonoBehaviour
 		m_Frequency = bpm / 60;
 	}
 	
-	public float GetValueWithOffset( float offset )
+	public float GetValueWithOffset( float offset, bool clamped )
 	{
-        return Mathf.Clamp01( Wave.Evaluate(m_Waveform, m_PositionInCycle + m_Phase + offset) );
+        float value = Wave.Evaluate(m_Waveform, m_PositionInCycle + m_Phase + offset);
 
-        /*
-		float currentAmplitude = Mathf.Sin( (CurrentAngle * Mathf.Deg2Rad) + ((offset * 360 * Mathf.Deg2Rad ) * m_Frequency ) );			
-		float amp =  (((currentAmplitude + 1) * .5f)  * m_Amplitude);
-		//return Mathf.Clamp( amp, 0, m_Amplitude );
-		return amp;
-         * */
-	}
+        if(clamped) return Mathf.Clamp01(value);
+
+        return value;
+    }
 	
 	public void SetSpeedMultiplyer( float speedMultiplyer  )
 	{
